@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>甲状腺术后复查记录</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            color: white;
+            padding: 24px 0 16px;
+        }
+        .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .header p { font-size: 13px; opacity: 0.85; }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            padding: 14px 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .stat-card .number {
+            font-size: 24px;
+            font-weight: 800;
+            color: #667eea;
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* 卡片通用样式 */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            position: relative;
+            height: 220px;
+            margin: 10px 0;
+        }
+        .chart-container.large {
+            height: 280px;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e8e8e8;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* 按钮 */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #555;
+            margin-top: 10px;
+        }
+        .btn-danger {
+            background: #ff4757;
+            color: white;
+            padding: 10px;
+            font-size: 13px;
+        }
+
+        /* 记录列表 */
+        .record-item {
+            background: #f8f9fa;
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .record-date {
+            font-size: 15px;
+            font-weight: 700;
+            color: #333;
+        }
+        .record-time {
+            font-size: 12px;
+            color: #888;
+            background: #e8e8e8;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .record-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .tag {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .tag-tsh { background: #ffe0e0; color: #c0392b; }
+        .tag-tg { background: #e0f7e0; color: #27ae60; }
+        .tag-ca { background: #fff3e0; color: #e67e22; }
+        .tag-med { background: #e3f2fd; color: #2980b9; }
+
+        /* 底部导航 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 100;
+            max-width: 480px;
+            margin: 0 auto;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 6px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .nav-item.active .nav-icon { color: #667eea; }
+        .nav-item.active .nav-label { color: #667eea; font-weight: 700; }
+        .nav-icon {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 2px;
+            color: #999;
+        }
+        .nav-label {
+            font-size: 11px;
+            color: #999;
+        }
+
+        /* 页面切换 */
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 提示框 */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-size: 15px;
+            z-index: 1000;
+            display: none;
+        }
+
+        /* 参考范围提示 */
+        .ref-hint {
+            font-size: 11px;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        /* 数据导出 */
+        .export-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #ddd;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .empty-state .big-icon {
+            font-size: 60px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        /* 删除确认 */
+        .delete-btn {
+            float: right;
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>甲状腺术后复查</h1>
+            <p>术后随访数据记录与监测</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="number" id="stat-count">0</div>
+                <div class="label">复查次数</div>
+            </div>
+            <div class="stat-card">
+                <div class="number" id="stat-days">0</div>
+                <div class="label">术后天数</div>
+            </div>
+            <div class="stat-card">
+                <div class="number" id="stat-last">--</div>
+                <div class="label">距上次(天)</div>
+            </div>
+        </div>
+
+        <!-- ========== 首页 / 图表 ========== -->
+        <div class="page active" id="page-home">
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#ffe0e0;">TSH</div>
+                    促甲状腺激素趋势
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartTSH"></canvas>
+                </div>
+                <p style="font-size:12px;color:#888;text-align:center;margin-top:8px;">
+                    目标: 低危 0.1-0.5 | 高危 &lt;0.1 mIU/L
+                </p>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#e0f7e0;">Tg</div>
+                    甲状腺球蛋白监测
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartTg"></canvas>
+                </div>
+                <p style="font-size:12px;color:#888;text-align:center;margin-top:8px;">
+                    警戒线: 0.2 ng/mL (全切+清甲后)
+                </p>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#fff3e0;">Ca</div>
+                    血钙 & PTH 监测
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartCa"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#e3f2fd;">药</div>
+                    用药剂量调整
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartMeds"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 添加记录 ========== -->
+        <div class="page" id="page-add">
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#667eea;color:white;">+</div>
+                    添加复查记录
+                </div>
+
+                <div class="form-group">
+                    <label>复查日期 *</label>
+                    <input type="date" id="inputDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label>术后时间</label>
+                    <input type="text" id="inputPostOp" placeholder="例如: 6个月">
+                </div>
+
+                <div class="card-title" style="margin-top:20px;font-size:15px;">
+                    <div class="icon" style="background:#ffe0e0;">甲</div>
+                    甲状腺功能
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>TSH (mIU/L)</label>
+                        <input type="number" id="inputTSH" step="0.01" placeholder="0.00">
+                        <div class="ref-hint">目标: &lt;0.5</div>
+                    </div>
+                    <div class="form-group">
+                        <label>FT3 (pmol/L)</label>
+                        <input type="number" id="inputFT3" step="0.1" placeholder="0.0">
+                        <div class="ref-hint">3.1-6.8</div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>FT4 (pmol/L)</label>
+                        <input type="number" id="inputFT4" step="0.1" placeholder="0.0">
+                        <div class="ref-hint">12-22</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Tg (ng/mL)</label>
+                        <input type="number" id="inputTg" step="0.01" placeholder="0.00">
+                        <div class="ref-hint">&lt;0.2</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>TgAb (IU/mL)</label>
+                    <input type="number" id="inputTgAb" step="0.1" placeholder="0.0">
+                    <div class="ref-hint">&lt;4</div>
+                </div>
+
+                <div class="card-title" style="margin-top:20px;font-size:15px;">
+                    <div class="icon" style="background:#fff3e0;">钙</div>
+                    钙磷代谢
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>血钙</label>
+                        <input type="number" id="inputCa" step="0.01" placeholder="mmol/L">
+                        <div class="ref-hint">2.1-2.6</div>
+                    </div>
+                    <div class="form-group">
+                        <label>血磷</label>
+                        <input type="number" id="inputP" step="0.01" placeholder="mmol/L">
+                        <div class="ref-hint">0.8-1.45</div>
+                    </div>
+                    <div class="form-group">
+                        <label>PTH</label>
+                        <input type="number" id="inputPTH" step="0.1" placeholder="pg/mL">
+                        <div class="ref-hint">15-65</div>
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top:20px;font-size:15px;">
+                    <div class="icon" style="background:#e3f2fd;">药</div>
+                    用药记录
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>优甲乐 (μg)</label>
+                        <input type="number" id="inputLevo" step="12.5" placeholder="剂量">
+                    </div>
+                    <div class="form-group">
+                        <label>钙剂 (mg)</label>
+                        <input type="number" id="inputCal" step="100" placeholder="剂量">
+                    </div>
+                    <div class="form-group">
+                        <label>骨化三醇 (μg)</label>
+                        <input type="number" id="inputVitD" step="0.25" placeholder="剂量">
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top:20px;font-size:15px;">
+                    <div class="icon" style="background:#f0f0f0;">其</div>
+                    其他信息
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>体重 (kg)</label>
+                        <input type="number" id="inputWeight" step="0.1" placeholder="kg">
+                    </div>
+                    <div class="form-group">
+                        <label>BMI</label>
+                        <input type="number" id="inputBMI" step="0.1" placeholder="自动计算">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>症状记录</label>
+                    <textarea id="inputSymptoms" rows="2" placeholder="乏力、心悸、手抖等..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>超声结果</label>
+                    <textarea id="inputUltrasound" rows="2" placeholder="颈部超声检查结果..."></textarea>
+                </div>
+
+                <button class="btn btn-primary" onclick="saveRecord()">保存记录</button>
+                <button class="btn btn-secondary" onclick="clearForm()">清空表单</button>
+            </div>
+        </div>
+
+        <!-- ========== 记录列表 ========== -->
+        <div class="page" id="page-list">
+            <div id="recordsContainer">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+
+        <!-- ========== 参考值 ========== -->
+        <div class="page" id="page-ref">
+            <div class="card">
+                <div class="card-title">
+                    <div class="icon" style="background:#667eea;color:white;">参</div>
+                    指标参考范围
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <h4 style="color:#667eea;margin-bottom:8px;font-size:14px;">甲状腺功能</h4>
+                    <div style="background:#f8f9fa;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>TSH (促甲状腺激素)</span>
+                            <span style="font-weight:700;color:#c0392b;">&lt;0.1~0.5 mIU/L</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>FT3 (游离T3)</span>
+                            <span style="font-weight:700;">3.1-6.8 pmol/L</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>FT4 (游离T4)</span>
+                            <span style="font-weight:700;">12-22 pmol/L</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>Tg (甲状腺球蛋白)</span>
+                            <span style="font-weight:700;color:#27ae60;">&lt;0.2 ng/mL</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                            <span>TgAb (甲状腺球蛋白抗体)</span>
+                            <span style="font-weight:700;">&lt;4 IU/mL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <h4 style="color:#e67e22;margin-bottom:8px;font-size:14px;">钙磷代谢</h4>
+                    <div style="background:#f8f9fa;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>血钙</span>
+                            <span style="font-weight:700;">2.1-2.6 mmol/L</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>血磷</span>
+                            <span style="font-weight:700;">0.8-1.45 mmol/L</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                            <span>PTH (甲状旁腺激素)</span>
+                            <span style="font-weight:700;">15-65 pg/mL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <h4 style="color:#2980b9;margin-bottom:8px;font-size:14px;">肿瘤标志物</h4>
+                    <div style="background:#f8f9fa;border-radius:10px;padding:12px;font-size:13px;line-height:1.8;">
+                        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0;">
+                            <span>降钙素 (Calcitonin)</span>
+                            <span style="font-weight:700;">&lt;10 pg/mL</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                            <span>CEA (癌胚抗原)</span>
+                            <span style="font-weight:700;">&lt;5 ng/mL</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <button class="btn btn-primary" onclick="exportData()">导出所有数据 (JSON)</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">导入数据</button>
+                    <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+                    <button class="btn btn-danger" onclick="clearAllData()" style="margin-top:10px;">清空所有数据</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="showPage('home')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">趋势</span>
+        </div>
+        <div class="nav-item" onclick="showPage('add')">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">添加</span>
+        </div>
+        <div class="nav-item" onclick="showPage('list')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">记录</span>
+        </div>
+        <div class="nav-item" onclick="showPage('ref')">
+            <span class="nav-icon">📖</span>
+            <span class="nav-label">参考</span>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ========== 数据管理 ==========
+        const STORAGE_KEY = 'thyroid_records';
+        let records = [];
+        let charts = {};
+
+        function loadRecords() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                records = JSON.parse(data);
+            }
+            updateStats();
+            renderCharts();
+            renderRecordsList();
+        }
+
+        function saveRecords() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            updateStats();
+            renderCharts();
+            renderRecordsList();
+        }
+
+        // ========== 页面切换 ==========
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            if (page === 'home') {
+                setTimeout(renderCharts, 50);
+            }
+        }
+
+        // ========== 统计更新 ==========
+        function updateStats() {
+            document.getElementById('stat-count').textContent = records.length;
+
+            if (records.length > 0) {
+                const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+                const firstDate = new Date(sorted[0].date);
+                const today = new Date();
+                const daysSince = Math.floor((today - firstDate) / (1000*60*60*24));
+                document.getElementById('stat-days').textContent = daysSince;
+
+                const lastDate = new Date(sorted[sorted.length-1].date);
+                const daysLast = Math.floor((today - lastDate) / (1000*60*60*24));
+                document.getElementById('stat-last').textContent = daysLast;
+            } else {
+                document.getElementById('stat-days').textContent = '0';
+                document.getElementById('stat-last').textContent = '--';
+            }
+        }
+
+        // ========== 保存记录 ==========
+        function saveRecord() {
+            const date = document.getElementById('inputDate').value;
+            if (!date) {
+                showToast('请填写复查日期');
+                return;
+            }
+
+            const record = {
+                id: Date.now(),
+                date: date,
+                postOp: document.getElementById('inputPostOp').value,
+                tsh: parseFloat(document.getElementById('inputTSH').value) || null,
+                ft3: parseFloat(document.getElementById('inputFT3').value) || null,
+                ft4: parseFloat(document.getElementById('inputFT4').value) || null,
+                tg: parseFloat(document.getElementById('inputTg').value) || null,
+                tgab: parseFloat(document.getElementById('inputTgAb').value) || null,
+                calcium: parseFloat(document.getElementById('inputCa').value) || null,
+                phosphorus: parseFloat(document.getElementById('inputP').value) || null,
+                pth: parseFloat(document.getElementById('inputPTH').value) || null,
+                levo: parseFloat(document.getElementById('inputLevo').value) || null,
+                cal: parseFloat(document.getElementById('inputCal').value) || null,
+                vitd: parseFloat(document.getElementById('inputVitD').value) || null,
+                weight: parseFloat(document.getElementById('inputWeight').value) || null,
+                bmi: parseFloat(document.getElementById('inputBMI').value) || null,
+                symptoms: document.getElementById('inputSymptoms').value,
+                ultrasound: document.getElementById('inputUltrasound').value
+            };
+
+            // 检查是否已有同日期记录
+            const existingIndex = records.findIndex(r => r.date === date);
+            if (existingIndex >= 0) {
+                if (confirm('该日期已有记录，是否覆盖？')) {
+                    records[existingIndex] = record;
+                } else {
+                    return;
+                }
+            } else {
+                records.push(record);
+            }
+
+            records.sort((a,b) => new Date(a.date) - new Date(b.date));
+            saveRecords();
+            showToast('保存成功！');
+            clearForm();
+
+            // 自动跳转到趋势页
+            setTimeout(() => {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.getElementById('page-home').classList.add('active');
+                document.querySelectorAll('.nav-item')[0].classList.add('active');
+                renderCharts();
+            }, 800);
+        }
+
+        function clearForm() {
+            document.querySelectorAll('#page-add input, #page-add textarea').forEach(el => el.value = '');
+            document.getElementById('inputDate').value = new Date().toISOString().split('T')[0];
+        }
+
+        function deleteRecord(id) {
+            if (confirm('确定删除这条记录吗？')) {
+                records = records.filter(r => r.id !== id);
+                saveRecords();
+                showToast('已删除');
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('确定清空所有数据？此操作不可恢复！')) {
+                records = [];
+                localStorage.removeItem(STORAGE_KEY);
+                updateStats();
+                renderCharts();
+                renderRecordsList();
+                showToast('数据已清空');
+            }
+        }
+
+        // ========== 渲染图表 ==========
+        function renderCharts() {
+            const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+            const labels = sorted.map(r => {
+                const d = new Date(r.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            });
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 } } }
+                }
+            };
+
+            // TSH Chart
+            const tshData = sorted.map(r => r.tsh).filter(v => v !== null);
+            const tshLabels = sorted.filter(r => r.tsh !== null).map(r => {
+                const d = new Date(r.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            });
+
+            if (charts.tsh) charts.tsh.destroy();
+            charts.tsh = new Chart(document.getElementById('chartTSH'), {
+                type: 'line',
+                data: {
+                    labels: tshLabels,
+                    datasets: [{
+                        label: 'TSH',
+                        data: tshData,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231,76,60,0.1)',
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#e74c3c',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: { type: 'line', yMin: 0.5, yMax: 0.5, borderColor: 'rgba(39,174,96,0.5)', borderWidth: 2, borderDash: [5,5] }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Tg Chart
+            const tgData = sorted.map(r => r.tg).filter(v => v !== null);
+            const tgLabels = sorted.filter(r => r.tg !== null).map(r => {
+                const d = new Date(r.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            });
+
+            if (charts.tg) charts.tg.destroy();
+            charts.tg = new Chart(document.getElementById('chartTg'), {
+                type: 'bar',
+                data: {
+                    labels: tgLabels,
+                    datasets: [{
+                        label: 'Tg',
+                        data: tgData,
+                        backgroundColor: tgData.map(v => v > 0.2 ? '#e74c3c' : '#27ae60'),
+                        borderRadius: 8,
+                        borderWidth: 0
+                    }]
+                },
+                options: commonOptions
+            });
+
+            // Calcium & PTH Chart
+            const caData = sorted.map(r => r.calcium).filter(v => v !== null);
+            const pthData = sorted.map(r => r.pth).filter(v => v !== null);
+            const caLabels = sorted.filter(r => r.calcium !== null).map(r => {
+                const d = new Date(r.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            });
+
+            if (charts.ca) charts.ca.destroy();
+            charts.ca = new Chart(document.getElementById('chartCa'), {
+                type: 'line',
+                data: {
+                    labels: caLabels,
+                    datasets: [
+                        {
+                            label: '血钙',
+                            data: caData,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243,156,18,0.1)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            yAxisID: 'y',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'PTH',
+                            data: pthData,
+                            borderColor: '#9b59b6',
+                            backgroundColor: 'rgba(155,89,182,0.1)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { position: 'left', grid: { color: '#f0f0f0' }, title: { display: true, text: '血钙 (mmol/L)' } },
+                        y1: { position: 'right', grid: { display: false }, title: { display: true, text: 'PTH (pg/mL)' } }
+                    }
+                }
+            });
+
+            // Meds Chart
+            const levoData = sorted.map(r => r.levo).filter(v => v !== null);
+            const calData = sorted.map(r => r.cal).filter(v => v !== null);
+            const vitdData = sorted.map(r => r.vitd).filter(v => v !== null);
+            const medLabels = sorted.filter(r => r.levo !== null || r.cal !== null).map(r => {
+                const d = new Date(r.date);
+                return `${d.getMonth()+1}/${d.getDate()}`;
+            });
+
+            if (charts.meds) charts.meds.destroy();
+            charts.meds = new Chart(document.getElementById('chartMeds'), {
+                type: 'bar',
+                data: {
+                    labels: medLabels,
+                    datasets: [
+                        { label: '优甲乐', data: sorted.map(r => r.levo), backgroundColor: '#e74c3c', borderRadius: 6 },
+                        { label: '钙剂', data: sorted.map(r => r.cal), backgroundColor: '#3498db', borderRadius: 6 },
+                        { label: '骨化三醇', data: sorted.map(r => r.vitd), backgroundColor: '#2ecc71', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: { legend: { display: true, labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        // ========== 渲染记录列表 ==========
+        function renderRecordsList() {
+            const container = document.getElementById('recordsContainer');
+            if (records.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="big-icon">📋</div>
+                        <p>暂无记录</p>
+                        <p style="font-size:13px;margin-top:8px;">点击底部"添加"开始记录</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sorted = [...records].sort((a,b) => new Date(b.date) - new Date(a.date));
+            container.innerHTML = sorted.map(r => {
+                const d = new Date(r.date);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+                let tags = '';
+                if (r.tsh !== null) tags += `<span class="tag tag-tsh">TSH ${r.tsh}</span>`;
+                if (r.tg !== null) tags += `<span class="tag tag-tg">Tg ${r.tg}</span>`;
+                if (r.calcium !== null) tags += `<span class="tag tag-ca">Ca ${r.calcium}</span>`;
+                if (r.levo !== null) tags += `<span class="tag tag-med">优甲乐 ${r.levo}μg</span>`;
+
+                return `
+                    <div class="record-item">
+                        <div class="record-header">
+                            <div>
+                                <div class="record-date">${dateStr}</div>
+                                ${r.postOp ? `<div style="font-size:12px;color:#888;margin-top:2px;">${r.postOp}</div>` : ''}
+                            </div>
+                            <button class="delete-btn" onclick="deleteRecord(${r.id})">删除</button>
+                        </div>
+                        <div class="record-tags">${tags}</div>
+                        ${r.symptoms ? `<div style="margin-top:8px;font-size:12px;color:#666;">症状: ${r.symptoms}</div>` : ''}
+                        ${r.ultrasound ? `<div style="margin-top:4px;font-size:12px;color:#666;">超声: ${r.ultrasound}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== 数据导出/导入 ==========
+        function exportData() {
+            const dataStr = JSON.stringify(records, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `甲状腺复查记录_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('导出成功');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (Array.isArray(data)) {
+                        records = data;
+                        saveRecords();
+                        showToast('导入成功');
+                    } else {
+                        showToast('文件格式错误');
+                    }
+                } catch(err) {
+                    showToast('导入失败');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ========== 工具函数 ==========
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+
+        // ========== 初始化 ==========
+        document.getElementById('inputDate').value = new Date().toISOString().split('T')[0];
+        loadRecords();
+
+        // 体重自动计算BMI
+        document.getElementById('inputWeight').addEventListener('change', function() {
+            const height = prompt('请输入身高(cm)用于计算BMI:');
+            if (height && !isNaN(height)) {
+                const bmi = (this.value / ((height/100) ** 2)).toFixed(1);
+                document.getElementById('inputBMI').value = bmi;
+            }
+        });
+    </script>
+</body>
+</html>
